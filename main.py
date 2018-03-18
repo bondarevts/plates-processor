@@ -7,19 +7,20 @@ from typing import List
 IMAGES_FOLDER = Path('plates-test')
 STRAINS_DESCRIPTION_CSV = Path('plates-example.csv')
 IMAGE_EXTENSION = '.ARW'
-PLATES_IN_TEST = 3
 
 ImageDescription = namedtuple('ImageDescription', 'name number side')
+StrainInfo = namedtuple('StrainInfo', 'name plates_number')
 
 
-def get_names(strain_descriptions_file: Path) -> List[str]:
+def get_names(strain_descriptions_file: Path) -> List[StrainInfo]:
     with open(strain_descriptions_file, newline='') as csv_file:
         next(csv_file, None)
 
-        return [record[1] for record in csv.reader(csv_file, dialect='excel')]
+        return [StrainInfo(name=record[1], plates_number=int(record[2]))
+                for record in csv.reader(csv_file, dialect='excel')]
 
 
-def rename_plates(names: List[str], images_folder: Path, plates_in_test: int) -> None:
+def rename_plates(strains: List[StrainInfo], images_folder: Path) -> None:
     raw_files: List[Path] = sorted(
         file
         for file in images_folder.iterdir()
@@ -27,9 +28,9 @@ def rename_plates(names: List[str], images_folder: Path, plates_in_test: int) ->
     )
 
     image_descriptions = (
-        ImageDescription(name=name, number=number, side=side)
-        for name in names
-        for number in range(1, plates_in_test + 1)
+        ImageDescription(name=strain.name, number=number, side=side)
+        for strain in strains
+        for number in range(1, strain.plates_number + 1)
         for side in ('back', 'front')
     )
 
@@ -45,12 +46,16 @@ def rename_plates(names: List[str], images_folder: Path, plates_in_test: int) ->
         raw_file.rename(new_path)
         print(f'{raw_file} -> {new_path}')
 
+    unprocessed_strains = list(image_descriptions)
+    if unprocessed_strains:
+        print(f'UNPROCESSED:')
+        print(*unprocessed_strains, sep='\n')
+
 
 def main():
     rename_plates(
         get_names(STRAINS_DESCRIPTION_CSV),
         images_folder=IMAGES_FOLDER,
-        plates_in_test=PLATES_IN_TEST,
     )
 
 
