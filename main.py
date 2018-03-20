@@ -34,7 +34,8 @@ def rename_plates(strains: List[StrainInfo], images_folder: Path) -> None:
         for side in ('back', 'front')
     )
 
-    for raw_file, description in zip(raw_files, image_descriptions):
+    files = iter(raw_files)
+    for raw_file, description in zip(files, image_descriptions):
         if not raw_file.name.startswith('DSC'):
             print(f'Skipped {raw_file}: Unexpected name. Should starts with DSC')
             continue
@@ -48,8 +49,13 @@ def rename_plates(strains: List[StrainInfo], images_folder: Path) -> None:
 
     unprocessed_strains = list(image_descriptions)
     if unprocessed_strains:
-        print(f'UNPROCESSED:')
+        print('UNPROCESSED STRAINS:')
         print(*unprocessed_strains, sep='\n')
+
+    unprocessed_files = list(files)
+    if unprocessed_files:
+        print('UNPROCESSED FILES:')
+        print(*unprocessed_files, sep='\n')
 
 
 def main():
