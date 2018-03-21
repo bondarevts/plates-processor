@@ -1,4 +1,5 @@
 import csv
+import math
 import sys
 from collections import namedtuple
 from itertools import groupby
@@ -9,8 +10,14 @@ from typing import Iterator
 from typing import List
 from typing import Union
 
-import math
+import cv2 as cv
+import numpy as np
 from PIL import Image
+
+HSV_MIN = np.array((9, 36, 111), np.uint8)
+HSV_MAX = np.array((81, 169, 202), np.uint8)
+
+CvImage = np.ndarray
 
 FileDescription = namedtuple('ImageDescription', 'name number side')
 StrainInfo = namedtuple('StrainInfo', 'name plates_number')
@@ -150,10 +157,53 @@ def combine(extension: str, input_folder: str) -> None:
     )
 
 
+def extract_plate(image_path: Path) -> CvImage:
+    img = cv.imread(image_path.as_posix())
+
+    hsv = cv.cvtColor(img, cv.COLOR_BGR2HSV)
+    thresh = cv.inRange(hsv, HSV_MIN, HSV_MAX)
+
+    _, contours, _ = cv.findContours(thresh, cv.RETR_TREE, cv.CHAIN_APPROX_SIMPLE)
+
+    hull_contours = map(cv.convexHull, contours)
+
+    complex_shape_vertices_number = 100
+    complex_hull_contours = (c for c in hull_contours if len(c) > complex_shape_vertices_number)
+
+    *_, plate_contour = max((cv.contourArea(contour), i, contour)
+                            for i, contour in enumerate(complex_hull_contours))
+    x, y, w, h = cv.boundingRect(plate_contour)
+    size = max(w, h)
+
+    img = img[y:y + size, x:x + size]
+    return img
+
+
+def crop_files(extension: str, input_folder: Path) -> None:
+    files = files_from(input_folder, extension)
+    for file in files:
+        print(f'Crop {file}', end='; ')
+        image = extract_plate(file)
+
+        target_folder = file.parent / 'plates'
+        target_folder.mkdir(exist_ok=True)
+        target_path = target_folder / prepare_file_name(f'{file.stem}-plate{file.suffix}')
+        print(f'saved in {target_path}')
+        cv.imwrite(target_path.as_posix(), image)
+
+
+def crop(extension: str, input_folder: str) -> None:
+    crop_files(
+        extension=prepare_extension(extension),
+        input_folder=Path(input_folder),
+    )
+
+
 def print_usage() -> None:
     print('Usage: ')
     print(f'\t{sys.argv[0]} rename <extension> <names_file> <input_folder>')
     print(f'\t{sys.argv[0]} combine <extension> <input_folder>')
+    print(f'\t{sys.argv[0]} crop <extension> <input_folder>')
 
 
 def main() -> None:
@@ -170,6 +220,10 @@ def main() -> None:
     elif command == 'combine':
         extension, input_folder = args
         combine(extension, input_folder)
+
+    elif command == 'crop':
+        extension, input_folder = args
+        crop(extension, input_folder)
 
     else:
         print(f'Unexpected command: {command}')
