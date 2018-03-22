@@ -18,6 +18,7 @@ HSV_MIN = np.array((9, 36, 111), np.uint8)
 HSV_MAX = np.array((81, 169, 202), np.uint8)
 
 CvImage = np.ndarray
+CvContour = np.ndarray
 
 FileDescription = namedtuple('ImageDescription', 'name number side')
 StrainInfo = namedtuple('StrainInfo', 'name plates_number')
@@ -157,26 +158,47 @@ def combine(extension: str, input_folder: str) -> None:
     )
 
 
-def extract_plate(image_path: Path) -> CvImage:
-    img = cv.imread(image_path.as_posix())
-
+def convert_to_black_and_white(img: CvImage) -> CvImage:
     hsv = cv.cvtColor(img, cv.COLOR_BGR2HSV)
-    thresh = cv.inRange(hsv, HSV_MIN, HSV_MAX)
+    return cv.inRange(hsv, HSV_MIN, HSV_MAX)
 
-    _, contours, _ = cv.findContours(thresh, cv.RETR_TREE, cv.CHAIN_APPROX_SIMPLE)
 
+def get_complex_contours(image: CvImage) -> Iterable[CvContour]:
+    threshold = convert_to_black_and_white(image)
+
+    _, contours, _ = cv.findContours(threshold, cv.RETR_TREE, cv.CHAIN_APPROX_SIMPLE)
     hull_contours = map(cv.convexHull, contours)
-
     complex_shape_vertices_number = 100
-    complex_hull_contours = (c for c in hull_contours if len(c) > complex_shape_vertices_number)
+    return (c for c in hull_contours if len(c) > complex_shape_vertices_number)
 
+
+def get_plate_contour(contours: Iterable[CvContour]) -> CvContour:
     *_, plate_contour = max((cv.contourArea(contour), i, contour)
-                            for i, contour in enumerate(complex_hull_contours))
+                            for i, contour in enumerate(contours))
+    return plate_contour
+
+
+def fill_black_outside_contour(image: CvImage, plate_contour: CvContour) -> None:
+    mask = np.zeros_like(image)
+    (x, y), radius = cv.minEnclosingCircle(plate_contour)
+    center = (int(x), int(y))
+    radius = int(radius)
+    cv.circle(mask, center, radius, color=(255, 255, 255), thickness=-1)
+    image[mask != 255] = 0
+
+
+def crop_plate_square(image: CvImage, plate_contour: CvContour) -> CvImage:
+    fill_black_outside_contour(image, plate_contour)
     x, y, w, h = cv.boundingRect(plate_contour)
     size = max(w, h)
+    return image[y:y + size, x:x + size]
 
-    img = img[y:y + size, x:x + size]
-    return img
+
+def extract_plate(image_path: Path) -> CvImage:
+    image = cv.imread(image_path.as_posix())
+    contours = get_complex_contours(image)
+    plate_contour = get_plate_contour(contours)
+    return crop_plate_square(image, plate_contour)
 
 
 def crop_files(extension: str, input_folder: Path) -> None:
