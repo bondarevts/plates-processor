@@ -14,8 +14,8 @@ import cv2 as cv
 import numpy as np
 from PIL import Image
 
-HSV_MIN = np.array((9, 36, 111), np.uint8)
-HSV_MAX = np.array((81, 169, 202), np.uint8)
+HSV_MIN = np.array((0, 0, 75), np.uint8)
+HSV_MAX = np.array((255, 255, 214), np.uint8)
 
 CvImage = np.ndarray
 CvContour = np.ndarray
