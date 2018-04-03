@@ -52,7 +52,7 @@ def files_from(folder: Path, extension: str) -> Iterable[Path]:
 
 def generate_descriptions(strains: Iterable[StrainInfo]) -> Iterator[FileDescription]:
     return (
-        FileDescription(name=strain.name, number=number, side=side)
+        FileDescription(name=strain.name.replace(' ', ''), number=number, side=side)
         for strain in strains
         for number in range(1, strain.plates_number + 1)
         for side in ('back', 'front')
