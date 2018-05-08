@@ -11,6 +11,7 @@ from typing import Iterator
 from typing import List
 from typing import Union
 
+import click
 import cv2 as cv
 import numpy as np
 from PIL import Image
@@ -21,11 +22,92 @@ HSV_MAX = np.array((255, 255, 214), np.uint8)
 CvImage = np.ndarray
 CvContour = np.ndarray
 
+
+class Config:
+    _home_directory: Path
+    plates_group: str
+
+    @property
+    def home_directory(self) -> Path:
+        return self._home_directory
+
+    @home_directory.setter
+    def home_directory(self, value: str) -> None:
+        self._home_directory = Path(value)
+
+    @property
+    def raw_plates_directory(self) -> Path:
+        return self._home_directory / self.plates_group
+
+    @property
+    def cropped_directory(self) -> Path:
+        return self._prepare_directory('cropped')
+
+    @property
+    def combined_directory(self) -> Path:
+        return self._prepare_directory('combined')
+
+    def _prepare_directory(self, suffix: str) -> Path:
+        directory = self._home_directory / (self.plates_group + '-' + suffix)
+        directory.mkdir(exist_ok=True)
+        return directory
+
+
+pass_config = click.make_pass_decorator(Config, ensure=True)
+
+
 FileDescription = namedtuple('ImageDescription', 'name number side')
 StrainInfo = namedtuple('StrainInfo', 'name plates_number')
 FilesGroup = namedtuple('FilesGroup', 'name side files')
 ImageSize = namedtuple('ImageSize', 'width height')
 Layout = namedtuple('Layout', 'rows columns')
+
+
+@click.group(context_settings={'help_option_names': ['-h', '--help']})
+@click.argument('home',
+                type=click.Path(exists=True, file_okay=False, writable=True, resolve_path=True))
+@click.argument('plates_group', type=str)
+@pass_config
+def main(config: Config, home: click.Path, plates_group: str) -> None:
+    config.home_directory = home
+    config.plates_group = plates_group
+
+
+@main.command()
+@click.option('-d', '--description_file', type=click.File())
+@click.option('-e', '--extensions', default='jpg,arw')
+@pass_config
+def rename(config: Config, description_file: click.File(lazy=True), extensions: str) -> None:
+    extension = extensions.split(',')[0]
+    rename_plate_files(
+        images_folder=config.raw_plates_directory,
+        strains=get_names(description_file.name),
+        extension=prepare_extension(extension),
+    )
+
+
+@main.command()
+@click.option('-e', '--extensions', default='jpg')
+@pass_config
+def crop(config: Config, extensions: str) -> None:
+    extension = extensions.split(',')[0]
+    crop_files(
+        extension=prepare_extension(extension),
+        input_folder=config.raw_plates_directory,
+        target_folder=config.cropped_directory,
+    )
+
+
+@main.command()
+@click.option('-e', '--extensions', default='jpg')
+@pass_config
+def combine(config: Config, extensions: str) -> None:
+    extension = extensions.split(',')[0]
+    combine_strain_files(
+        extension=prepare_extension(extension),
+        input_folder=config.cropped_directory,
+        target_folder=config.combined_directory,
+    )
 
 
 def prepare_extension(extension: str) -> str:
@@ -86,14 +168,6 @@ def rename_plate_files(images_folder: Path, strains: List[StrainInfo], extension
     print_left_items(files_iterator, description='Unexpected files:')
 
 
-def rename(extension: str, names_file: str, input_folder: str) -> None:
-    rename_plate_files(
-        images_folder=Path(input_folder),
-        strains=get_names(names_file),
-        extension=prepare_extension(extension),
-    )
-
-
 def extract_groups(files: Iterable[Path]) -> Iterable[FilesGroup]:
     def group_key(file):
         return file.name.split('_')[0], file.stem.split('_')[-1]
@@ -144,19 +218,10 @@ def combine_files_in_group(group: FilesGroup, target_folder: Path, extension: st
     target_image.save(target_folder / prepare_file_name(f'{group.name}_{group.side}{extension}'))
 
 
-def combine_strain_files(extension: str, input_folder: Path):
+def combine_strain_files(extension: str, input_folder: Path, target_folder: Path):
     files = files_from(input_folder, extension)
-    target_folder = input_folder / 'combined'
-    target_folder.mkdir(exist_ok=True)
     for group in extract_groups(files):
         combine_files_in_group(group, target_folder, extension)
-
-
-def combine(extension: str, input_folder: str) -> None:
-    combine_strain_files(
-        extension=prepare_extension(extension),
-        input_folder=Path(input_folder),
-    )
 
 
 def convert_to_black_and_white(img: CvImage) -> CvImage:
@@ -202,24 +267,15 @@ def extract_plate(image_path: Path) -> CvImage:
     return crop_plate_square(image, plate_contour)
 
 
-def crop_files(extension: str, input_folder: Path) -> None:
+def crop_files(extension: str, input_folder: Path, target_folder: Path) -> None:
     files = files_from(input_folder, extension)
     for file in files:
         print(f'Crop {file}', end='; ')
         image = extract_plate(file)
 
-        target_folder = file.parent / 'plates'
-        target_folder.mkdir(exist_ok=True)
         target_path = target_folder / prepare_file_name(f'{file.stem}-plate{file.suffix}')
         print(f'saved in {target_path}')
         cv.imwrite(target_path.as_posix(), image)
-
-
-def crop(extension: str, input_folder: str) -> None:
-    crop_files(
-        extension=prepare_extension(extension),
-        input_folder=Path(input_folder),
-    )
 
 
 def print_usage() -> None:
@@ -227,30 +283,6 @@ def print_usage() -> None:
     print(f'\t{sys.argv[0]} rename <extension> <names_file> <input_folder>')
     print(f'\t{sys.argv[0]} combine <extension> <input_folder>')
     print(f'\t{sys.argv[0]} crop <extension> <input_folder>')
-
-
-def main() -> None:
-    if len(sys.argv) == 1:
-        print_usage()
-        return
-
-    _, command, *args = sys.argv
-
-    if command == 'rename':
-        extension, names_file, input_folder = args
-        rename(extension, names_file, input_folder)
-
-    elif command == 'combine':
-        extension, input_folder = args
-        combine(extension, input_folder)
-
-    elif command == 'crop':
-        extension, input_folder = args
-        crop(extension, input_folder)
-
-    else:
-        print(f'Unexpected command: {command}')
-        print_usage()
 
 
 if __name__ == '__main__':
