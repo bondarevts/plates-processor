@@ -16,9 +16,6 @@ import cv2 as cv
 import numpy as np
 from PIL import Image
 
-HSV_MIN = np.array((0, 0, 75), np.uint8)
-HSV_MAX = np.array((255, 255, 214), np.uint8)
-
 CvImage = np.ndarray
 CvContour = np.ndarray
 
@@ -55,12 +52,17 @@ class Config:
 
 pass_config = click.make_pass_decorator(Config, ensure=True)
 
-
 FileDescription = namedtuple('ImageDescription', 'name number side')
 StrainInfo = namedtuple('StrainInfo', 'name plates_number')
 FilesGroup = namedtuple('FilesGroup', 'name side files')
 ImageSize = namedtuple('ImageSize', 'width height')
 Layout = namedtuple('Layout', 'rows columns')
+ColorRange = namedtuple('Range', 'min max')
+
+PLATE_HSV_RANGE = ColorRange(
+    min=np.array((0, 0, 75), np.uint8),
+    max=np.array((255, 255, 214), np.uint8)
+)
 
 
 @click.group(context_settings={'help_option_names': ['-h', '--help']})
@@ -224,13 +226,13 @@ def combine_strain_files(extension: str, input_folder: Path, target_folder: Path
         combine_files_in_group(group, target_folder, extension)
 
 
-def convert_to_black_and_white(img: CvImage) -> CvImage:
+def convert_to_black_and_white(img: CvImage, hsv_range: ColorRange) -> CvImage:
     hsv = cv.cvtColor(img, cv.COLOR_BGR2HSV)
-    return cv.inRange(hsv, HSV_MIN, HSV_MAX)
+    return cv.inRange(hsv, hsv_range.min, hsv_range.max)
 
 
 def get_complex_contours(image: CvImage) -> Iterable[CvContour]:
-    threshold = convert_to_black_and_white(image)
+    threshold = convert_to_black_and_white(image, PLATE_HSV_RANGE)
 
     _, contours, _ = cv.findContours(threshold, cv.RETR_TREE, cv.CHAIN_APPROX_SIMPLE)
     hull_contours = map(cv.convexHull, contours)
