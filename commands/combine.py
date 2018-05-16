@@ -108,7 +108,7 @@ def text_center_point(image: CvImage) -> Point:
     contour = text_contour(threshold)
     point = text_contour_center_point(contour)
     # cv.drawContours(image, [contour], -1, (255, 0, 0), 3)
-    # cv.drawMarker(image, point, (255, 255, 0), thickness=40, markerSize=200)
+    # cv.drawMarker(image, point, (255, 255, 0), thickness=15, markerSize=100)
     return point
 
 
