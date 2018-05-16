@@ -103,9 +103,7 @@ def prepare_extension(extension: str) -> str:
 
 def get_names(strain_descriptions_file: Union[Path, str]) -> List[StrainInfo]:
     with open(strain_descriptions_file, newline='') as csv_file:
-        next(csv_file, None)
-
-        return [StrainInfo(name=record[1], plates_number=int(record[2]))
+        return [StrainInfo(name=record[0], plates_number=int(record[1]))
                 for record in csv.reader(csv_file, dialect='excel')]
 
 
