@@ -12,7 +12,7 @@ from commands.types import CvContour
 from commands.types import CvImage
 
 PLATE_HSV_RANGE = ColorRange(
-    min=np.array((0, 0, 75), np.uint8),
+    min=np.array((0, 0, 94), np.uint8),
     max=np.array((255, 255, 214), np.uint8)
 )
 
