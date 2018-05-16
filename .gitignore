@@ -1,1 +1,4 @@
 test-images/
+.idea/
+__pycache__
+*~
