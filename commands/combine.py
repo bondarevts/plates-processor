@@ -1,4 +1,5 @@
 import math
+import traceback
 from itertools import groupby
 from pathlib import Path
 from typing import Iterable
@@ -51,8 +52,12 @@ def combine_files_in_group(group: FilesGroup, target_folder: Path, extension: st
     x_offset = y_offset = 0
     for i, file in enumerate(group.files):
         image = cv.imread(file.as_posix())
-        if group.side == 'back' and with_rotation:
-            image = rotate_text_up(image)
+        if group.side.startswith('back') and with_rotation:
+            try:
+                image = rotate_text_up(image)
+            except:
+                print(file.as_posix())
+                traceback.print_exc()
         put_image(image, target_image, Point(x_offset, y_offset))
         x_offset += column_width
         if (i + 1) % layout.columns == 0:
