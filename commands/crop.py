@@ -6,10 +6,12 @@ import numpy as np
 
 from commands.files_utils import files_from
 from commands.files_utils import prepare_file_name
+from commands.image_utils import clear_outside_circle
 from commands.image_utils import convert_to_black_and_white
 from commands.types import ColorRange
 from commands.types import CvContour
 from commands.types import CvImage
+from commands.types import Point
 
 PLATE_HSV_RANGE = ColorRange(
     min=np.array((0, 0, 94), np.uint8),
@@ -51,16 +53,12 @@ def get_plate_contour(contours: Iterable[CvContour]) -> CvContour:
 
 
 def crop_plate_square(image: CvImage, plate_contour: CvContour) -> CvImage:
-    fill_black_outside_contour(image, plate_contour)
+    image = fill_black_outside_contour(image, plate_contour)
     x, y, w, h = cv.boundingRect(plate_contour)
     size = max(w, h)
     return image[y:y + size, x:x + size]
 
 
-def fill_black_outside_contour(image: CvImage, plate_contour: CvContour) -> None:
-    mask = np.zeros_like(image)
+def fill_black_outside_contour(image: CvImage, plate_contour: CvContour) -> CvImage:
     (x, y), radius = cv.minEnclosingCircle(plate_contour)
-    center = (int(x), int(y))
-    radius = int(radius)
-    cv.circle(mask, center, radius, color=(255, 255, 255), thickness=-1)
-    image[mask != 255] = 0
+    return clear_outside_circle(image, Point(int(x), int(y)), int(radius))

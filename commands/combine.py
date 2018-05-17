@@ -12,6 +12,8 @@ from commands.files_utils import prepare_file_name
 from commands.image_utils import convert_to_black_and_white
 from commands.image_utils import image_center
 from commands.image_utils import image_size
+from commands.image_utils import put_image
+from commands.image_utils import rotate_image
 from commands.types import ColorRange
 from commands.types import CvContour
 from commands.types import CvImage
@@ -98,11 +100,6 @@ def rotate_text_up(image: CvImage) -> CvImage:
     return rotate_image(image, angle)
 
 
-def put_image(image: CvImage, target_image: CvImage, offset: Point) -> None:
-    size = image_size(image)
-    target_image[offset.y: offset.y + size.height, offset.x: offset.x + size.width, :] = image
-
-
 def text_center_point(image: CvImage) -> Point:
     threshold = prepare_text_image(image)
     contour = text_contour(threshold)
@@ -118,11 +115,6 @@ def angle_from_center_vertical(center: int, point: Point) -> float:
     if point.x < center:
         angle = -angle
     return angle
-
-
-def rotate_image(source: CvImage, angle: float) -> CvImage:
-    rotation_matrix = cv.getRotationMatrix2D(image_center(source), angle, scale=1)
-    return cv.warpAffine(source, rotation_matrix, dsize=image_size(source))
 
 
 def prepare_text_image(image: CvImage) -> CvImage:
