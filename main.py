@@ -55,16 +55,17 @@ def main(config: Config, home: click.Path, plates_group: str) -> None:
 
 
 @main.command()
-@click.option('-d', '--description_file', type=click.File())
+@click.option('-d', '--description_file', type=Path)
 @click.option('-e', '--extensions', default='jpg,arw')
 @pass_config
 def rename(config: Config, description_file: Path, extensions: str) -> None:
     extensions = [prepare_extension(e) for e in extensions.split(',')]
 
     if not description_file.exists():
-        description_file = config.raw_plates_directory / description_file
-        if not description_file.exists():
-            raise Exception("Description file is not found: " + description_file.absolute())
+        home_directory_description_file = config.home_directory / description_file
+        if not home_directory_description_file.exists():
+            raise Exception(f'Description file is not found: "{home_directory_description_file}"; "{description_file}"')
+        description_file = home_directory_description_file
 
     rename_plate_files(
         images_folder=config.raw_plates_directory,
