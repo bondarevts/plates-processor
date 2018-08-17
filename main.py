@@ -60,11 +60,11 @@ def main(config: Config, home: click.Path, plates_group: str) -> None:
 @click.option('-e', '--extensions', default='jpg,arw')
 @pass_config
 def rename(config: Config, description_file: click.File(lazy=True), extensions: str) -> None:
-    extension = extensions.split(',')[0]
+    extensions = [prepare_extension(e) for e in extensions.split(',')]
     rename_plate_files(
         images_folder=config.raw_plates_directory,
         strains=get_names(description_file.name),
-        extension=prepare_extension(extension),
+        extensions=extensions,
     )
 
 

@@ -10,18 +10,27 @@ from commands.types import FileDescription
 from commands.types import StrainInfo
 
 
-def rename_plate_files(images_folder: Path, strains: List[StrainInfo], extension: str) -> None:
+def rename_plate_files(images_folder: Path, strains: List[StrainInfo], extensions: List[str]) -> None:
+    left_descriptions = []
+    left_files = []
+    for extension in extensions:
+        descriptions, files = rename_for_extension(images_folder, strains, extension)
+        left_descriptions.extend(descriptions)
+        left_files.extend(files)
+
+    print_left_items(left_descriptions, description="Can't find files for:")
+    print_left_items(left_files, description='Unexpected files:')
+
+
+def rename_for_extension(images_folder: Path, strains: List[StrainInfo], extension: str):
     files_iterator = iter(files_from(images_folder, extension))
     file_descriptions = iter(generate_descriptions(strains))
-
     for file, description in zip(files_iterator, file_descriptions):
         new_filename = prepare_file_name(f'{description.name}_{description.number}_{description.side}{extension}')
         new_path = file.parent / new_filename
         file.rename(new_path)
         print(f'Rename: {file} -> {new_path}')
-
-    print_left_items(file_descriptions, description="Can't find files for:")
-    print_left_items(files_iterator, description='Unexpected files:')
+    return list(file_descriptions), list(files_iterator)
 
 
 def generate_descriptions(strains: Iterable[StrainInfo]) -> Iterator[FileDescription]:
