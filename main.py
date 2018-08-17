@@ -46,8 +46,7 @@ pass_config = click.make_pass_decorator(Config, ensure=True)
 
 
 @click.group(context_settings={'help_option_names': ['-h', '--help']})
-@click.argument('home',
-                type=click.Path(exists=True, file_okay=False, writable=True, resolve_path=True))
+@click.argument('home', type=click.Path(exists=True, file_okay=False, writable=True, resolve_path=True))
 @click.argument('plates_group', type=str)
 @pass_config
 def main(config: Config, home: click.Path, plates_group: str) -> None:
@@ -59,11 +58,17 @@ def main(config: Config, home: click.Path, plates_group: str) -> None:
 @click.option('-d', '--description_file', type=click.File())
 @click.option('-e', '--extensions', default='jpg,arw')
 @pass_config
-def rename(config: Config, description_file: click.File(lazy=True), extensions: str) -> None:
+def rename(config: Config, description_file: Path, extensions: str) -> None:
     extensions = [prepare_extension(e) for e in extensions.split(',')]
+
+    if not description_file.exists():
+        description_file = config.raw_plates_directory / description_file
+        if not description_file.exists():
+            raise Exception("Description file is not found: " + description_file.absolute())
+
     rename_plate_files(
         images_folder=config.raw_plates_directory,
-        strains=get_names(description_file.name),
+        strains=get_names(description_file),
         extensions=extensions,
     )
 
@@ -101,7 +106,7 @@ def prepare_extension(extension: str) -> str:
     return extension
 
 
-def get_names(strain_descriptions_file: Union[Path, str]) -> List[StrainInfo]:
+def get_names(strain_descriptions_file: Path) -> List[StrainInfo]:
     with open(strain_descriptions_file, newline='') as csv_file:
         return [StrainInfo(name=record[0], plates_number=int(record[1]))
                 for record in csv.reader(csv_file, dialect='excel')]
