@@ -38,7 +38,7 @@ def extract_groups(files: Iterable[Path]) -> Iterable[FilesGroup]:
         return file.name.split('_')[0], file.stem.split('_')[-1]
 
     groups = groupby(sorted(files, key=group_key), key=group_key)
-    return (FilesGroup(name=name, side=side, files=sorted(group_files, key=lambda file: int(file.name.split('_')[1])))
+    return (FilesGroup(name=name, side=side, files=sorted(group_files, key=get_plate_number))
             for (name, side), group_files in groups)
 
 
@@ -147,3 +147,8 @@ def text_contour_center_point(contour: CvContour) -> Point:
 
 def vector_length(x0: float, y0: float, x1: float, y1: float) -> float:
     return math.sqrt((x0 - x1) ** 2 + (y0 - y1) ** 2)
+
+
+def get_plate_number(file: Path) -> int:
+    *_, number, _ = file.name.split('_')
+    return int(number)
