@@ -8,6 +8,7 @@ import cv2 as cv
 import numpy as np
 
 from commands.files_utils import files_from
+from commands.files_utils import parse_file_name
 from commands.files_utils import prepare_file_name
 from commands.image_utils import convert_to_black_and_white
 from commands.image_utils import image_center
@@ -35,10 +36,11 @@ def combine_strain_files(extension: str, input_folder: Path, target_folder: Path
 
 def extract_groups(files: Iterable[Path]) -> Iterable[FilesGroup]:
     def group_key(file):
-        return file.name.split('_')[0], file.stem.split('_')[-1]
+        description = parse_file_name(file)
+        return description.name, description.side
 
     groups = groupby(sorted(files, key=group_key), key=group_key)
-    return (FilesGroup(name=name, side=side, files=sorted(group_files, key=get_plate_number))
+    return (FilesGroup(name=name, side=side, files=sorted(group_files, key=lambda file: parse_file_name(file).number))
             for (name, side), group_files in groups)
 
 
@@ -147,8 +149,3 @@ def text_contour_center_point(contour: CvContour) -> Point:
 
 def vector_length(x0: float, y0: float, x1: float, y1: float) -> float:
     return math.sqrt((x0 - x1) ** 2 + (y0 - y1) ** 2)
-
-
-def get_plate_number(file: Path) -> int:
-    *_, number, _ = file.name.split('_')
-    return int(number)

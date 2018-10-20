@@ -2,7 +2,6 @@
 import csv
 from pathlib import Path
 from typing import List
-from typing import Union
 
 import click
 
